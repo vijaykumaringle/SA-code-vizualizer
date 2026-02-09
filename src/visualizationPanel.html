@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Code Visualization</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-family: var(--vscode-font-family);
+            color: var(--vscode-foreground);
+            background-color: var(--vscode-editor-background);
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        #header {
+            padding: 15px 20px;
+            border-bottom: 1px solid var(--vscode-panel-border);
+            flex-shrink: 0;
+        }
+        #header h1 {
+            margin: 0 0 10px 0;
+            font-size: 20px;
+            font-weight: 600;
+        }
+        #stats {
+            display: flex;
+            gap: 20px;
+            font-size: 12px;
+            color: var(--vscode-descriptionForeground);
+            flex-wrap: wrap;
+        }
+        #stats span {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        #stats strong {
+            color: var(--vscode-foreground);
+            font-weight: 600;
+        }
+        .badge {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 11px;
+            font-weight: 600;
+            background-color: var(--vscode-badge-background);
+            color: var(--vscode-badge-foreground);
+        }
+        .badge.warning {
+            background-color: var(--vscode-inputValidation-warningBackground);
+            color: var(--vscode-inputValidation-warningForeground);
+        }
+        .controls-panel {
+            padding: 10px 20px;
+            border-bottom: 1px solid var(--vscode-panel-border);
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: center;
+            flex-shrink: 0;
+        }
+        .control-group {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        .control-group label {
+            font-size: 12px;
+            color: var(--vscode-descriptionForeground);
+        }
+        input[type="text"], select {
+            padding: 4px 8px;
+            background-color: var(--vscode-input-background);
+            color: var(--vscode-input-foreground);
+            border: 1px solid var(--vscode-input-border);
+            border-radius: 2px;
+            font-size: 12px;
+            font-family: var(--vscode-font-family);
+        }
+        input[type="text"]:focus, select:focus {
+            outline: 1px solid var(--vscode-focusBorder);
+            outline-offset: -1px;
+        }
+        input[type="text"] {
+            min-width: 200px;
+        }
+        select {
+            min-width: 120px;
+        }
+        button {
+            padding: 6px 12px;
+            background-color: var(--vscode-button-background);
+            color: var(--vscode-button-foreground);
+            border: none;
+            border-radius: 2px;
+            cursor: pointer;
+            font-size: 12px;
+            font-family: var(--vscode-font-family);
+        }
+        button:hover {
+            background-color: var(--vscode-button-hoverBackground);
+        }
+        button.secondary {
+            background-color: var(--vscode-button-secondaryBackground);
+            color: var(--vscode-button-secondaryForeground);
+        }
+        button.secondary:hover {
+            background-color: var(--vscode-button-secondaryHoverBackground);
+        }
+        #network {
+            flex: 1;
+            min-height: 0;
+            border-top: 1px solid var(--vscode-panel-border);
+        }
+        .info-panel {
+            position: absolute;
+            top: 120px;
+            right: 20px;
+            background-color: var(--vscode-editor-background);
+            border: 1px solid var(--vscode-panel-border);
+            border-radius: 4px;
+            padding: 15px;
+            max-width: 350px;
+            max-height: calc(100vh - 160px);
+            overflow-y: auto;
+            display: none;
+            z-index: 1000;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+        .info-panel.show {
+            display: block;
+        }
+        .info-panel h3 {
+            margin: 0 0 12px 0;
+            font-size: 14px;
+            font-weight: 600;
+            word-break: break-word;
+        }
+        .info-panel .file-path {
+            font-family: var(--vscode-editor-font-family);
+            font-size: 11px;
+            color: var(--vscode-textLink-foreground);
+            cursor: pointer;
+            text-decoration: underline;
+            word-break: break-all;
+            margin: 8px 0;
+        }
+        .info-panel .file-path:hover {
+            color: var(--vscode-textLink-activeForeground);
+        }
+        .info-panel p {
+            margin: 6px 0;
+            font-size: 12px;
+            line-height: 1.5;
+        }
+        .info-panel .metric {
+            display: flex;
+            justify-content: space-between;
+            padding: 4px 0;
+            border-bottom: 1px solid var(--vscode-panel-border);
+        }
+        .info-panel .metric:last-child {
+            border-bottom: none;
+        }
+        .info-panel .metric-label {
+            color: var(--vscode-descriptionForeground);
+        }
+        .info-panel .metric-value {
+            font-weight: 600;
+        }
+        .close-btn {
+            float: right;
+            background: none;
+            border: none;
+            color: var(--vscode-foreground);
+            cursor: pointer;
+            font-size: 20px;
+            padding: 0;
+            width: 24px;
+            height: 24px;
+            line-height: 20px;
+            text-align: center;
+            border-radius: 2px;
+        }
+        .close-btn:hover {
+            background-color: var(--vscode-toolbar-hoverBackground);
+        }
+        .dependencies-list {
+            margin-top: 10px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .dependency-item {
+            padding: 4px 8px;
+            margin: 2px 0;
+            background-color: var(--vscode-list-hoverBackground);
+            border-radius: 2px;
+            font-size: 11px;
+            cursor: pointer;
+        }
+        .dependency-item:hover {
+            background-color: var(--vscode-list-activeSelectionBackground);
+        }
+        .dependency-type {
+            display: inline-block;
+            padding: 1px 4px;
+            border-radius: 2px;
+            font-size: 10px;
+            margin-right: 6px;
+            background-color: var(--vscode-badge-background);
+            color: var(--vscode-badge-foreground);
+        }
+    </style>
+    <script nonce="{{NONCE}}" type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+</head>
+<body>
+    <div id="header">
+        <h1>Code Dependency Visualization</h1>
+        <div id="stats">
+            <span>Files: <strong id="nodeCount">0</strong></span>
+            <span>Dependencies: <strong id="edgeCount">0</strong></span>
+            <span>Languages: <strong id="langCount">0</strong></span>
+            <span id="circularBadge" style="display: none;">
+                Circular: <strong class="badge warning" id="circularCount">0</strong>
+            </span>
+        </div>
+    </div>
+    
+    <div class="controls-panel">
+        <div class="control-group">
+            <input type="text" id="searchInput" placeholder="Search files..." />
+        </div>
+        <div class="control-group">
+            <label>Language:</label>
+            <select id="languageFilter">
+                <option value="">All Languages</option>
+            </select>
+        </div>
+        <div class="control-group">
+            <label>Type:</label>
+            <select id="typeFilter">
+                <option value="">All Types</option>
+                <option value="import">Import</option>
+                <option value="require">Require</option>
+                <option value="dynamic-import">Dynamic Import</option>
+                <option value="include">Include</option>
+                <option value="using">Using</option>
+                <option value="from">From</option>
+                <option value="export">Export</option>
+            </select>
+        </div>
+        <div class="control-group">
+            <button onclick="showCircularOnly()">Show Circular</button>
+            <button onclick="resetFilters()">Reset</button>
+        </div>
+        <div class="control-group" style="margin-left: auto;">
+            <button onclick="fitNetwork()">Fit</button>
+            <button onclick="resetZoom()">Reset Zoom</button>
+            <button onclick="togglePhysics()">Physics</button>
+            <button class="secondary" onclick="exportData()">Export</button>
+        </div>
+    </div>
+    
+    <div id="network"></div>
+    
+    <div id="infoPanel" class="info-panel">
+        <button class="close-btn" onclick="closeInfoPanel()" title="Close">&times;</button>
+        <h3 id="infoTitle">File Information</h3>
+        <div id="infoContent"></div>
+    </div>
+
+    <script nonce="{{NONCE}}">
+        const vscode = acquireVsCodeApi();
+        const graphData = {{GRAPHDATA}};
+        
+        let network = null;
+        let nodes = null;
+        let edges = null;
+        let physicsEnabled = true;
+        let filteredNodes = null;
+        let filteredEdges = null;
+        let selectedNodeId = null;
+        
+        // Initialize stats
+        const languages = new Set(graphData.nodes.map(n => n.language));
+        document.getElementById('nodeCount').textContent = graphData.statistics?.totalNodes || graphData.nodes.length;
+        document.getElementById('edgeCount').textContent = graphData.statistics?.totalEdges || graphData.edges.length;
+        document.getElementById('langCount').textContent = graphData.statistics?.languages?.length || languages.size;
+        
+        if (graphData.statistics?.circularCount > 0) {
+            document.getElementById('circularBadge').style.display = 'inline';
+            document.getElementById('circularCount').textContent = graphData.statistics.circularCount;
+        }
+        
+        // Populate language filter
+        const langFilter = document.getElementById('languageFilter');
+        Array.from(languages).sort().forEach(lang => {
+            const option = document.createElement('option');
+            option.value = lang;
+            option.textContent = lang.charAt(0).toUpperCase() + lang.slice(1);
+            langFilter.appendChild(option);
+        });
+        
+        // Search input handler
+        document.getElementById('searchInput').addEventListener('input', (e) => {
+            applyFilters();
+        });
+        
+        // Filter handlers
+        langFilter.addEventListener('change', applyFilters);
+        document.getElementById('typeFilter').addEventListener('change', applyFilters);
+        
+        function applyFilters() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            const langFilter = document.getElementById('languageFilter').value;
+            const typeFilter = document.getElementById('typeFilter').value;
+            
+            const filteredNodeIds = new Set();
+            
+            // Filter nodes
+            const filteredNodesArray = graphData.nodes.filter(node => {
+                const matchesSearch = !searchTerm || 
+                    node.label.toLowerCase().includes(searchTerm) || 
+                    node.path.toLowerCase().includes(searchTerm);
+                const matchesLang = !langFilter || node.language === langFilter;
+                
+                if (matchesSearch && matchesLang) {
+                    filteredNodeIds.add(node.id);
+                    return true;
+                }
+                return false;
+            });
+            
+            // Filter edges
+            const filteredEdgesArray = graphData.edges.filter(edge => {
+                const matchesType = !typeFilter || edge.type === typeFilter;
+                const bothNodesVisible = filteredNodeIds.has(edge.from) && filteredNodeIds.has(edge.to);
+                return matchesType && bothNodesVisible;
+            });
+            
+            filteredNodes = new vis.DataSet(filteredNodesArray.map(node => createNodeData(node)));
+            filteredEdges = new vis.DataSet(filteredEdgesArray.map(edge => createEdgeData(edge)));
+            
+            if (network) {
+                network.setData({ nodes: filteredNodes, edges: filteredEdges });
+            }
+        }
+        
+        function createNodeData(node) {
+            const isCircular = node.isCircular || graphData.circularDependencies?.some(circle => circle.includes(node.id));
+            return {
+                id: node.id,
+                label: node.label,
+                title: node.path + '\\n' + node.language + (isCircular ? '\\n⚠ Circular dependency' : ''),
+                value: Math.max(node.size || 100, 50),
+                group: node.group || 0,
+                color: {
+                    background: getColorForLanguage(node.language),
+                    border: isCircular ? '#ff6b6b' : getColorForLanguage(node.language),
+                    highlight: {
+                        background: getColorForLanguage(node.language),
+                        border: '#fff'
+                    }
+                },
+                font: {
+                    color: var(--vscode-foreground),
+                    size: 12,
+                    face: 'var(--vscode-font-family)'
+                },
+                borderWidth: isCircular ? 3 : 2,
+                shape: 'dot'
+            };
+        }
+        
+        function createEdgeData(edge) {
+            const isCircular = edge.isCircular || graphData.circularDependencies?.some(circle => {
+                const fromIdx = circle.indexOf(edge.from);
+                const toIdx = circle.indexOf(edge.to);
+                return fromIdx !== -1 && toIdx !== -1 && 
+                       (toIdx === (fromIdx + 1) % circle.length || fromIdx === (toIdx + 1) % circle.length);
+            });
+            
+            const typeColors = {
+                'import': '#4dabf7',
+                'require': '#51cf66',
+                'dynamic-import': '#ffd43b',
+                'include': '#ff8787',
+                'using': '#845ef7',
+                'from': '#339af0',
+                'export': '#ff922b'
+            };
+            
+            return {
+                from: edge.from,
+                to: edge.to,
+                value: edge.value || 1,
+                count: edge.count || 1,
+                title: edge.title || '',
+                type: edge.type,
+                arrows: 'to',
+                color: {
+                    color: isCircular ? '#ff6b6b' : (typeColors[edge.type] || 'var(--vscode-descriptionForeground)'),
+                    highlight: '#fff',
+                    opacity: 0.8
+                },
+                width: Math.min((edge.count || 1) * 1.5, 4),
+                smooth: {
+                    type: 'continuous',
+                    roundness: 0.5
+                },
+                dashes: isCircular
+            };
+        }
+        
+        function initNetwork() {
+            const container = document.getElementById('network');
+            
+            filteredNodes = new vis.DataSet(graphData.nodes.map(node => createNodeData(node)));
+            filteredEdges = new vis.DataSet(graphData.edges.map(edge => createEdgeData(edge)));
+            
+            const data = { nodes: filteredNodes, edges: filteredEdges };
+            const options = {
+                nodes: {
+                    shape: 'dot',
+                    scaling: {
+                        min: 10,
+                        max: 50
+                    },
+                    font: {
+                        size: 12,
+                        face: 'var(--vscode-font-family)'
+                    },
+                    shadow: true
+                },
+                edges: {
+                    arrows: {
+                        to: {
+                            enabled: true,
+                            scaleFactor: 0.6
+                        }
+                    },
+                    shadow: true
+                },
+                physics: {
+                    enabled: physicsEnabled,
+                    stabilization: {
+                        iterations: 200
+                    },
+                    barnesHut: {
+                        gravitationalConstant: -2000,
+                        centralGravity: 0.3,
+                        springLength: 200,
+                        springConstant: 0.04,
+                        damping: 0.09
+                    }
+                },
+                interaction: {
+                    hover: true,
+                    tooltipDelay: 100,
+                    zoomView: true,
+                    dragView: true,
+                    selectConnectedEdges: true
+                }
+            };
+            
+            network = new vis.Network(container, data, options);
+            
+            // Event listeners
+            network.on('click', function(params) {
+                if (params.nodes.length > 0) {
+                    const nodeId = params.nodes[0];
+                    selectedNodeId = nodeId;
+                    const node = graphData.nodes.find(n => n.id === nodeId);
+                    if (node) {
+                        showNodeInfo(node);
+                    }
+                } else {
+                    closeInfoPanel();
+                }
+            });
+            
+            network.on('doubleClick', function(params) {
+                if (params.nodes.length > 0) {
+                    const nodeId = params.nodes[0];
+                    const node = graphData.nodes.find(n => n.id === nodeId);
+                    if (node) {
+                        openFile(node.path);
+                    }
+                }
+            });
+            
+            network.on('hoverNode', function(params) {
+                container.style.cursor = 'pointer';
+            });
+            
+            network.on('blurNode', function(params) {
+                container.style.cursor = 'default';
+            });
+        }
+        
+        function getColorForLanguage(language) {
+            const colors = {
+                'typescript': '#3178c6',
+                'javascript': '#f7df1e',
+                'python': '#3776ab',
+                'java': '#ed8b00',
+                'csharp': '#239120',
+                'cpp': '#00599c',
+                'c': '#a8b9cc',
+                'go': '#00add8',
+                'rust': '#000000',
+                'ruby': '#cc342d',
+                'php': '#777bb4',
+                'swift': '#fa7343',
+                'kotlin': '#7f52ff',
+                'scala': '#dc322f',
+                'dart': '#0175c2',
+                'vue': '#4fc08d',
+                'svelte': '#ff3e00'
+            };
+            return colors[language] || '#808080';
+        }
+        
+        function showNodeInfo(node) {
+            const panel = document.getElementById('infoPanel');
+            const title = document.getElementById('infoTitle');
+            const content = document.getElementById('infoContent');
+            
+            title.textContent = node.label;
+            
+            const isCircular = node.isCircular || graphData.circularDependencies?.some(circle => circle.includes(node.id));
+            const dependencies = graphData.edges.filter(e => e.from === node.id);
+            const dependents = graphData.edges.filter(e => e.to === node.id);
+            
+            let html = \`
+                <div class="file-path" onclick="openFile('\${node.path}')" title="Click to open file">\${node.path}</div>
+                <div class="metric">
+                    <span class="metric-label">Language:</span>
+                    <span class="metric-value">\${node.language}</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Size:</span>
+                    <span class="metric-value">\${formatBytes(node.size || 0)}</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Lines:</span>
+                    <span class="metric-value">\${node.lineCount || 'N/A'}</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Dependencies:</span>
+                    <span class="metric-value">\${dependencies.length}</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Dependents:</span>
+                    <span class="metric-value">\${dependents.length}</span>
+                </div>
+            \`;
+            
+            if (isCircular) {
+                html += '<div class="metric"><span class="metric-label" style="color: #ff6b6b;">⚠ Circular Dependency</span></div>';
+            }
+            
+            if (dependencies.length > 0) {
+                html += '<p style="margin-top: 12px; font-weight: 600;">Dependencies:</p><div class="dependencies-list">';
+                dependencies.forEach(dep => {
+                    const targetNode = graphData.nodes.find(n => n.id === dep.to);
+                    if (targetNode) {
+                        html += \`<div class="dependency-item" onclick="selectNode('\${dep.to}')">
+                            <span class="dependency-type">\${dep.type || 'import'}</span>
+                            \${targetNode.label}
+                        </div>\`;
+                    }
+                });
+                html += '</div>';
+            }
+            
+            if (dependents.length > 0) {
+                html += '<p style="margin-top: 12px; font-weight: 600;">Dependents:</p><div class="dependencies-list">';
+                dependents.forEach(dep => {
+                    const sourceNode = graphData.nodes.find(n => n.id === dep.from);
+                    if (sourceNode) {
+                        html += \`<div class="dependency-item" onclick="selectNode('\${dep.from}')">
+                            <span class="dependency-type">\${dep.type || 'import'}</span>
+                            \${sourceNode.label}
+                        </div>\`;
+                    }
+                });
+                html += '</div>';
+            }
+            
+            content.innerHTML = html;
+            panel.classList.add('show');
+        }
+        
+        function selectNode(nodeId) {
+            if (network) {
+                network.selectNodes([nodeId]);
+                network.focus(nodeId, { scale: 1.5, animation: true });
+                const node = graphData.nodes.find(n => n.id === nodeId);
+                if (node) {
+                    showNodeInfo(node);
+                }
+            }
+        }
+        
+        function openFile(filePath) {
+            vscode.postMessage({
+                command: 'openFile',
+                path: filePath
+            });
+        }
+        
+        function closeInfoPanel() {
+            document.getElementById('infoPanel').classList.remove('show');
+            selectedNodeId = null;
+        }
+        
+        function formatBytes(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+        }
+        
+        function fitNetwork() {
+            if (network) {
+                network.fit({ animation: true });
+            }
+        }
+        
+        function resetZoom() {
+            if (network) {
+                network.moveTo({ scale: 1, animation: true });
+            }
+        }
+        
+        function togglePhysics() {
+            physicsEnabled = !physicsEnabled;
+            if (network) {
+                network.setOptions({ physics: { enabled: physicsEnabled } });
+            }
+        }
+        
+        function showCircularOnly() {
+            if (!graphData.circularDependencies || graphData.circularDependencies.length === 0) {
+                return;
+            }
+            
+            const circularNodeIds = new Set();
+            graphData.circularDependencies.forEach(circle => {
+                circle.forEach(id => circularNodeIds.add(id));
+            });
+            
+            const circularNodes = graphData.nodes.filter(n => circularNodeIds.has(n.id));
+            const circularEdges = graphData.edges.filter(e => 
+                circularNodeIds.has(e.from) && circularNodeIds.has(e.to)
+            );
+            
+            filteredNodes = new vis.DataSet(circularNodes.map(node => createNodeData(node)));
+            filteredEdges = new vis.DataSet(circularEdges.map(edge => createEdgeData(edge)));
+            
+            if (network) {
+                network.setData({ nodes: filteredNodes, edges: filteredEdges });
+                network.fit({ animation: true });
+            }
+        }
+        
+        function resetFilters() {
+            document.getElementById('searchInput').value = '';
+            document.getElementById('languageFilter').value = '';
+            document.getElementById('typeFilter').value = '';
+            applyFilters();
+        }
+        
+        function exportData() {
+            const dataStr = JSON.stringify(graphData, null, 2);
+            const dataBlob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(dataBlob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'code-visualization.json';
+            link.click();
+            URL.revokeObjectURL(url);
+        }
+        
+        // Initialize on load
+        window.addEventListener('load', initNetwork);
+    </script>
+</body>
+</html>
